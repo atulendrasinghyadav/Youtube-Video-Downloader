@@ -28,7 +28,12 @@ YDL_BASE_OPTS = {
     "quiet": True,
     "no_warnings": True,
     "nocheckcertificate": False,
+    "extractor_args": {"youtube": ["player_client=android,web"]},
 }
+
+# If a cookies.txt file exists (e.g., via Render Secret Files), use it to bypass bot checks
+if os.path.exists("cookies.txt"):
+    YDL_BASE_OPTS["cookiefile"] = "cookies.txt"
 
 
 def safe_filename(name):
