@@ -31,11 +31,14 @@ YDL_BASE_OPTS = {
     "extractor_args": {"youtube": ["player_client=android,web"]},
 }
 
-# If a cookies.txt file exists (e.g., via Render Secret Files), use it to bypass bot checks
+# Copy cookie file to /tmp (writable) since Render's /etc/secrets is read-only
 cookie_paths = ["/etc/secrets/cookies.txt", "cookies.txt"]
 for cp in cookie_paths:
     if os.path.exists(cp):
-        YDL_BASE_OPTS["cookiefile"] = cp
+        tmp_cookie = "/tmp/cookies.txt"
+        shutil.copy2(cp, tmp_cookie)
+        os.chmod(tmp_cookie, 0o600)
+        YDL_BASE_OPTS["cookiefile"] = tmp_cookie
         break
 
 
