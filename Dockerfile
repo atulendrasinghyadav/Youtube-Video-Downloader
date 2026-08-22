@@ -17,5 +17,5 @@ COPY server.py .
 # Expose the port
 EXPOSE 5001
 
-# Run the app with gunicorn (timeout set to 5 mins for large downloads)
-CMD ["gunicorn", "-b", "0.0.0.0:5001", "--timeout", "300", "server:app"]
+# Run the app with gunicorn, binding to the PORT env var provided by Render
+CMD gunicorn -b 0.0.0.0:${PORT:-5001} --timeout 300 server:app
