@@ -32,8 +32,11 @@ YDL_BASE_OPTS = {
 }
 
 # If a cookies.txt file exists (e.g., via Render Secret Files), use it to bypass bot checks
-if os.path.exists("cookies.txt"):
-    YDL_BASE_OPTS["cookiefile"] = "cookies.txt"
+cookie_paths = ["/etc/secrets/cookies.txt", "cookies.txt"]
+for cp in cookie_paths:
+    if os.path.exists(cp):
+        YDL_BASE_OPTS["cookiefile"] = cp
+        break
 
 
 def safe_filename(name):
