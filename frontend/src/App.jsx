@@ -1,7 +1,9 @@
 import { useState } from "react";
 import "./App.css";
 
-const API = (import.meta.env.VITE_API_URL || "http://localhost:5001").replace(/\/+$/, "");
+// Empty string = relative paths. Works in production (same-origin via Flask)
+// and locally (Vite proxies /api/* to Flask on port 5001)
+const API = "";
 
 function formatViews(n) {
   if (!n) return "N/A";

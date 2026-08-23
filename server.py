@@ -5,30 +5,37 @@ import shutil
 import tempfile
 import threading
 import certifi
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 import yt_dlp
 
-# Fix SSL on macOS
+# Fix SSL on macOS (no-op on Linux/Render but harmless)
 os.environ["SSL_CERT_FILE"] = certifi.where()
 os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 ssl._create_default_https_context = ssl.create_default_context
 
-app = Flask(__name__)
+# Flask serves the built React app as static files from frontend/dist/
+app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
+
+# CORS only needed when running locally with a separate dev server
 CORS(app)
 
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
     return response
 
+
+# ── yt-dlp base options ───────────────────────────────────────────────────────
 YDL_BASE_OPTS = {
     "quiet": True,
     "no_warnings": True,
     "nocheckcertificate": False,
-    "extractor_args": {"youtube": ["player_client=android,web"]},
+    "extractor_args": {"youtube": ["player_client=tv,ios,web"]},
+    "retries": 5,
+    "sleep_interval": 2,
 }
 
 # Copy cookie file to /tmp (writable) since Render's /etc/secrets is read-only
@@ -43,7 +50,7 @@ for cp in cookie_paths:
 
 
 def safe_filename(name):
-    return re.sub(r'[^\w\s\-.]', '', name).strip()
+    return re.sub(r"[^\w\s\-.]", "", name).strip()
 
 
 def cleanup_later(path, delay=120):
@@ -53,6 +60,22 @@ def cleanup_later(path, delay=120):
         time.sleep(delay)
         shutil.rmtree(path, ignore_errors=True)
     threading.Thread(target=_do, daemon=True).start()
+
+
+# ── React Frontend (catch-all — must be defined BEFORE any error handlers) ───
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_react(path):
+    """Serve React's index.html for all non-API routes (SPA support)."""
+    # Let API routes fall through to their own handlers
+    if path.startswith("api/"):
+        return jsonify({"error": "Not found"}), 404
+    # Serve actual static assets (JS, CSS, images) if they exist
+    static_file = os.path.join(app.static_folder, path)
+    if path and os.path.exists(static_file):
+        return send_from_directory(app.static_folder, path)
+    # For everything else, return index.html (React handles routing)
+    return send_from_directory(app.static_folder, "index.html")
 
 
 # ── /api/info ────────────────────────────────────────────────────────────────
