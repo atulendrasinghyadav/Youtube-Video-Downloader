@@ -28,17 +28,31 @@ def after_request(response):
     return response
 
 
-# ── yt-dlp base options ───────────────────────────────────────────────────────
+# ── yt-dlp base options (hardened for cloud servers) ──────────────────────────
 YDL_BASE_OPTS = {
     "quiet": True,
     "no_warnings": True,
     "nocheckcertificate": False,
+    # Use multiple player clients — tv/ios bypass more checks than web
     "extractor_args": {"youtube": ["player_client=tv,ios,web"]},
-    "retries": 5,
-    "sleep_interval": 2,
+    # Mimic a real browser
+    "user_agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0.0.0 Safari/537.36"
+    ),
+    # Rate-limit to look human (seconds between requests)
+    "sleep_interval": 3,
+    "max_sleep_interval": 6,
+    "sleep_interval_requests": 1,
+    # Retry aggressively
+    "retries": 10,
+    "fragment_retries": 10,
+    # Prefer http2
+    "downloader_args": {"default": ["--http2"]},
 }
 
-# Copy cookie file to /tmp (writable) since Render's /etc/secrets is read-only
+# ── Load cookies (copy to writable /tmp for Render Docker) ────────────────────
 cookie_paths = ["/etc/secrets/cookies.txt", "cookies.txt"]
 for cp in cookie_paths:
     if os.path.exists(cp):
@@ -46,7 +60,11 @@ for cp in cookie_paths:
         shutil.copy2(cp, tmp_cookie)
         os.chmod(tmp_cookie, 0o600)
         YDL_BASE_OPTS["cookiefile"] = tmp_cookie
+        print(f"[server] Loaded cookies from {cp} → {tmp_cookie}")
         break
+else:
+    print("[server] WARNING: No cookies.txt found — YouTube WILL block cloud IPs!")
+
 
 
 def safe_filename(name):
